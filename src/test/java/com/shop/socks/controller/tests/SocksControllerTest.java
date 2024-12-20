@@ -13,6 +13,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -21,11 +22,9 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 public class SocksControllerTest {
 
@@ -189,4 +188,35 @@ public class SocksControllerTest {
                 .andExpect(jsonPath("$.quantity").value(150)); // Замените на реальные свойства
     }
 
+    @Test
+    public void testBatchOfSocksFromExcel_Success() throws Exception {
+        //Подготовка данных для теста
+        MockMultipartFile file = new MockMultipartFile("file", "socks.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Excel content".getBytes());
+        LotOfSocksDto lotOfSocksDto = new LotOfSocksDto(100);
+
+        //Настройка поведения мок-сервиса
+        when(socksServiceImpl.processBatchOfSocks(file)).thenReturn(lotOfSocksDto);
+
+        //Выполнение запроса и проверка результата
+        mockMvc.perform(multipart("/api/socks/batch")
+                        .file(file)
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").exists()); //Проверка на существование возвращаемого объекта
+    }
+
+    @Test
+    public void testBatchOfSocksFromExcel_EmptyFile() throws Exception {
+        //Подготовка пустого файла для теста
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[0]);
+
+        //Выполнение запроса и проверка результата
+        mockMvc.perform(multipart("/api/socks/batch")
+                        .file(emptyFile)
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isBadRequest()); //Ожидаем статус 400 BAD REQUEST
+    }
 }
